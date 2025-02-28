@@ -12,34 +12,6 @@ export function useWeb3() {
   const [balance, setBalance] = useState<string | null>(null);
   const [chainId, setChainId] = useState<string | null>(null);
 
-  const disconnect = useCallback(() => {
-    setIsConnected(false);
-    setAddress(null);
-    setContract(null);
-    setSigner(null);
-    setBalance(null);
-    setChainId(null);
-    localStorage.setItem('walletDisconnected', 'true');
-
-    // Remove os listeners existentes
-    if (window.ethereum) {
-      window.ethereum.removeAllListeners('accountsChanged');
-      window.ethereum.removeAllListeners('chainChanged');
-    }
-
-    // Força a limpeza do cache da carteira
-    if (window.ethereum && window.ethereum._state) {
-      try {
-        // @ts-ignore
-        window.ethereum._state.accounts = [];
-        // @ts-ignore
-        window.ethereum._state.isConnected = false;
-      } catch (err) {
-        console.error('Erro ao limpar estado da carteira:', err);
-      }
-    }
-  }, []);
-
   const updateBalance = useCallback(async () => {
     if (address && window.ethereum) {
       try {
@@ -64,50 +36,49 @@ export function useWeb3() {
   }, []);
 
   const connect = useCallback(async () => {
-    if (!window.ethereum) {
-      setError('Por favor, instale uma carteira Web3 como MetaMask');
-      return;
+    if (typeof window.ethereum === 'undefined') {
+      throw new Error('MetaMask não está instalado');
     }
 
-    setIsLoading(true);
-    setError(null);
-
     try {
-      // Remove o flag de desconexão antes de tentar conectar
-      localStorage.removeItem('walletDisconnected');
+      setIsLoading(true);
+      setError(null);
 
-      const accounts = await window.ethereum.request({
-        method: 'eth_requestAccounts',
-      });
+      // Solicita conexão com a carteira
+      await window.ethereum.request({ method: 'eth_requestAccounts' });
+      
+      // Configura o provider
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      
+      // Obtém o signer
+      const signer = await provider.getSigner();
+      setSigner(signer);
+      
+      // Inicializa o contrato
+      const contract = new ethers.Contract(
+        CONTRACT_ADDRESS,
+        CONTRACT_ABI,
+        signer
+      );
+      setContract(contract);
 
-      if (accounts.length > 0) {
-        setAddress(accounts[0]);
-        setIsConnected(true);
+      // Verifica e adiciona a rede se necessário
+      await checkAndAddNetwork();
 
-        // Configura o provider e signer
-        const provider = new ethers.BrowserProvider(window.ethereum);
-        const signer = await provider.getSigner();
-        setSigner(signer);
+      setIsConnected(true);
+      const userAddress = await signer.getAddress();
+      setAddress(userAddress);
 
-        // Inicializa o contrato
-        const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
-        setContract(contract);
-
-        // Atualiza saldo e chainId
-        await Promise.all([updateBalance(), updateChainId()]);
-      }
+      // Atualiza saldo e chainId
+      await Promise.all([updateBalance(), updateChainId()]);
     } catch (err: any) {
-      if (err.code === 4001) {
-        setError('Conexão rejeitada pelo usuário');
-      } else {
-        setError('Erro ao conectar carteira');
-        console.error('Erro ao conectar:', err);
-      }
-      disconnect(); // Garante que tudo seja limpo em caso de erro
+      console.error('Erro ao conectar:', err);
+      setError(err.message || 'Erro ao conectar com a carteira');
+      setIsConnected(false);
     } finally {
       setIsLoading(false);
     }
-  }, [updateBalance, updateChainId, disconnect]);
+  }, [updateBalance, updateChainId]);
 
   const checkAndAddNetwork = async () => {
     try {
@@ -136,8 +107,7 @@ export function useWeb3() {
     if (!contract) throw new Error('Contrato não inicializado');
     
     try {
-      const priceInWei = ethers.parseEther(price);
-      const tx = await contract.createEvent(name, description, priceInWei.toString(), maxTickets);
+      const tx = await contract.createEvent(name, description, price, maxTickets);
       await tx.wait();
       return tx;
     } catch (err: any) {
@@ -151,7 +121,7 @@ export function useWeb3() {
     
     try {
       const tx = await contract.purchaseTicket(eventId, {
-        value: ethers.parseEther(value)
+        value: value
       });
       await tx.wait();
       return tx;
@@ -162,55 +132,44 @@ export function useWeb3() {
   }, [contract]);
 
   useEffect(() => {
-    const checkConnection = async () => {
-      if (window.ethereum) {
-        try {
-          const isDisconnected = localStorage.getItem('walletDisconnected');
-          if (isDisconnected === 'true') {
-            disconnect();
-            return;
-          }
-
-          const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+    // Verifica se já está conectado ao carregar o componente
+    if (window.ethereum) {
+      window.ethereum.request({ method: 'eth_accounts' })
+        .then((accounts: string[]) => {
           if (accounts.length > 0) {
             connect();
           }
-        } catch (err) {
-          console.error('Erro ao verificar conexão:', err);
-          disconnect();
-        }
-      }
-    };
+        });
 
-    checkConnection();
-  }, [connect, disconnect]);
-
-  useEffect(() => {
-    if (window.ethereum) {
-      const handleAccountsChanged = (accounts: string[]) => {
+      // Listeners para mudanças na carteira
+      window.ethereum.on('accountsChanged', (accounts: string[]) => {
         if (accounts.length === 0) {
-          disconnect();
+          setIsConnected(false);
+          setAddress(null);
+          setContract(null);
+          setSigner(null);
+          setBalance(null);
         } else {
-          setAddress(accounts[0]);
-          setIsConnected(true);
-          localStorage.removeItem('walletDisconnected');
-          updateBalance();
+          connect();
         }
-      };
+      });
 
-      const handleChainChanged = () => {
+      window.ethereum.on('chainChanged', () => {
+        updateChainId();
         window.location.reload();
-      };
+      });
 
-      window.ethereum.on('accountsChanged', handleAccountsChanged);
-      window.ethereum.on('chainChanged', handleChainChanged);
+      // Atualiza o saldo periodicamente
+      const balanceInterval = setInterval(updateBalance, 15000); // A cada 15 segundos
 
       return () => {
-        window.ethereum.removeListener('accountsChanged', handleAccountsChanged);
-        window.ethereum.removeListener('chainChanged', handleChainChanged);
+        if (window.ethereum) {
+          window.ethereum.removeAllListeners();
+        }
+        clearInterval(balanceInterval);
       };
     }
-  }, [disconnect, updateBalance]);
+  }, [connect, updateBalance, updateChainId]);
 
   return {
     isConnected,
@@ -221,7 +180,6 @@ export function useWeb3() {
     balance,
     chainId,
     connect,
-    disconnect,
     createEvent,
     buyTicket,
     updateBalance
