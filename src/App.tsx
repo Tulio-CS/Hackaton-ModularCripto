@@ -1,41 +1,78 @@
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { WalletProvider } from './context/WalletContext';
-import { Web3Provider } from './context/Web3Context';
-import Layout from './components/layout/Layout';
-import HomePage from './pages/HomePage';
-import ExplorePage from './pages/ExplorePage';
-import DashboardPage from './pages/DashboardPage';
-import EventOrganizerPage from './pages/EventOrganizerPage';
-import EventDetailPage from './pages/EventDetailPage';
-import TicketDetailPage from './pages/TicketDetailPage';
-import MyTicketsPage from './pages/MyTicketsPage';
-import SellTicketPage from './pages/SellTicketPage';
-import HowItWorksPage from './pages/HowItWorksPage';
-import NFTPage from './pages/NFTPage';
+import React, { useState } from 'react';
+import { ConnectWallet } from './components/ConnectWallet';
+import { CreateEvent } from './components/CreateEvent';
+import { EventList } from './components/EventList';
+import { MyTickets } from './components/MyTickets';
 
 function App() {
+  const [activeTab, setActiveTab] = useState('events');
+
   return (
-    <Web3Provider>
-      <WalletProvider>
-        <Router>
-          <Layout>
-            <Routes>
-              <Route path="/" element={<HomePage />} />
-              <Route path="/explore" element={<ExplorePage />} />
-              <Route path="/dashboard" element={<DashboardPage />} />
-              <Route path="/organizer" element={<EventOrganizerPage />} />
-              <Route path="/events/:eventId" element={<EventDetailPage />} />
-              <Route path="/tickets/:ticketId" element={<TicketDetailPage />} />
-              <Route path="/my-tickets" element={<MyTicketsPage />} />
-              <Route path="/sell/:tokenId" element={<SellTicketPage />} />
-              <Route path="/how-it-works" element={<HowItWorksPage />} />
-              <Route path="/nft/:tokenId" element={<NFTPage />} />
-            </Routes>
-          </Layout>
-        </Router>
-      </WalletProvider>
-    </Web3Provider>
+    <div className="min-h-screen bg-gray-100">
+      <nav className="bg-white shadow-lg">
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="flex justify-between h-16">
+            <div className="flex-shrink-0 flex items-center">
+              <h1 className="text-xl font-bold text-indigo-600">NFT Tickets</h1>
+            </div>
+            
+            <div className="flex items-center">
+              <ConnectWallet />
+            </div>
+          </div>
+        </div>
+      </nav>
+
+      <div className="max-w-7xl mx-auto px-4 py-6">
+        <div className="mb-6">
+          <div className="border-b border-gray-200">
+            <nav className="-mb-px flex space-x-8">
+              <button
+                onClick={() => setActiveTab('events')}
+                className={`
+                  ${activeTab === 'events'
+                    ? 'border-indigo-500 text-indigo-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}
+                  whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm
+                `}
+              >
+                Eventos Disponíveis
+              </button>
+              
+              <button
+                onClick={() => setActiveTab('create')}
+                className={`
+                  ${activeTab === 'create'
+                    ? 'border-indigo-500 text-indigo-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}
+                  whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm
+                `}
+              >
+                Criar Evento
+              </button>
+              
+              <button
+                onClick={() => setActiveTab('mytickets')}
+                className={`
+                  ${activeTab === 'mytickets'
+                    ? 'border-indigo-500 text-indigo-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}
+                  whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm
+                `}
+              >
+                Meus Ingressos
+              </button>
+            </nav>
+          </div>
+        </div>
+
+        <main>
+          {activeTab === 'events' && <EventList />}
+          {activeTab === 'create' && <CreateEvent />}
+          {activeTab === 'mytickets' && <MyTickets />}
+        </main>
+      </div>
+    </div>
   );
 }
 

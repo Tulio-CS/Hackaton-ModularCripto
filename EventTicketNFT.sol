@@ -14,94 +14,121 @@ contract EventTicketNFT is ERC721, ReentrancyGuard, Ownable {
         string name;
         string description;
         uint256 price;
-        bool isActive;
-        bool isSold;
+        uint256 maxTickets;      // Número máximo de ingressos
+        uint256 ticketsSold;     // Número de ingressos vendidos
+        bool isActive;           // Se o evento está ativo
     }
 
-    mapping(uint256 => Event) public events;
-    mapping(uint256 => uint256) public ticketToEvent;
+    // Mapeamentos
+    mapping(uint256 => Event) public events;        // eventId => Event
+    mapping(uint256 => uint256) public ticketToEvent; // tokenId => eventId
+    mapping(uint256 => string) private _tokenURIs;  // tokenId => metadata URI
+
     uint256 public eventCount;
 
+    // Eventos
     event EventCreated(
         uint256 indexed eventId,
         string name,
-        uint256 price
+        uint256 price,
+        uint256 maxTickets
     );
 
     event TicketPurchased(
         uint256 indexed eventId,
         uint256 indexed tokenId,
-        address buyer
+        address buyer,
+        uint256 price
     );
 
-    constructor() ERC721("Event Ticket NFT", "TICKET") Ownable(msg.sender) {
-        eventCount = 0;
-    }
+    event EventCancelled(uint256 indexed eventId);
 
+    constructor() ERC721("ModularCripto Event Tickets", "MCET") Ownable(msg.sender) {}
+
+    /**
+     * @dev Cria um novo evento
+     * @param name Nome do evento
+     * @param description Descrição do evento
+     * @param price Preço do ingresso em wei
+     * @param maxTickets Número máximo de ingressos disponíveis
+     */
     function createEvent(
         string calldata name,
         string calldata description,
-        uint256 price
-    ) public onlyOwner returns (uint256) {
+        uint256 price,
+        uint256 maxTickets
+    ) external onlyOwner returns (uint256) {
         require(bytes(name).length > 0, "Nome nao pode estar vazio");
         require(bytes(description).length > 0, "Descricao nao pode estar vazia");
         require(price > 0, "Preco deve ser maior que zero");
+        require(maxTickets > 0, "Numero de ingressos deve ser maior que zero");
 
-        unchecked {
-            eventCount++;
-        }
+        eventCount++;
 
         events[eventCount] = Event({
             name: name,
             description: description,
             price: price,
-            isActive: true,
-            isSold: false
+            maxTickets: maxTickets,
+            ticketsSold: 0,
+            isActive: true
         });
 
-        emit EventCreated(eventCount, name, price);
+        emit EventCreated(eventCount, name, price, maxTickets);
         return eventCount;
     }
 
-    function purchaseTicket(uint256 eventId) public payable nonReentrant returns (uint256) {
+    /**
+     * @dev Compra um ingresso para um evento
+     * @param eventId ID do evento
+     */
+    function purchaseTicket(uint256 eventId) external payable nonReentrant returns (uint256) {
         require(eventId > 0 && eventId <= eventCount, "Evento nao existe");
         
         Event storage eventDetails = events[eventId];
         require(eventDetails.isActive, "Evento nao esta ativo");
-        require(!eventDetails.isSold, "Ingresso ja foi vendido");
+        require(eventDetails.ticketsSold < eventDetails.maxTickets, "Ingressos esgotados");
         require(msg.value >= eventDetails.price, "Valor insuficiente");
 
-        unchecked {
-            _tokenIds.increment();
-        }
+        _tokenIds.increment();
         uint256 newTokenId = _tokenIds.current();
 
         _safeMint(msg.sender, newTokenId);
         ticketToEvent[newTokenId] = eventId;
-        eventDetails.isSold = true;
+        eventDetails.ticketsSold++;
 
+        // Devolve o excesso de pagamento
         if (msg.value > eventDetails.price) {
-            uint256 refund = msg.value - eventDetails.price;
-            (bool success, ) = payable(msg.sender).call{value: refund}("");
+            (bool success, ) = payable(msg.sender).call{value: msg.value - eventDetails.price}("");
             require(success, "Falha ao devolver o excesso");
         }
 
-        emit TicketPurchased(eventId, newTokenId, msg.sender);
+        emit TicketPurchased(eventId, newTokenId, msg.sender, eventDetails.price);
         return newTokenId;
     }
 
-    function cancelEvent(uint256 eventId) public onlyOwner {
+    /**
+     * @dev Cancela um evento
+     * @param eventId ID do evento
+     */
+    function cancelEvent(uint256 eventId) external onlyOwner {
         require(eventId > 0 && eventId <= eventCount, "Evento nao existe");
         require(events[eventId].isActive, "Evento ja esta inativo");
         events[eventId].isActive = false;
+        emit EventCancelled(eventId);
     }
 
-    function getEventDetails(uint256 eventId) public view returns (
+    /**
+     * @dev Retorna os detalhes de um evento
+     * @param eventId ID do evento
+     */
+    function getEventDetails(uint256 eventId) external view returns (
         string memory name,
         string memory description,
         uint256 price,
-        bool isActive,
-        bool isSold
+        uint256 maxTickets,
+        uint256 ticketsSold,
+        bool isActive
     ) {
         require(eventId > 0 && eventId <= eventCount, "Evento nao existe");
         Event storage eventDetails = events[eventId];
@@ -109,17 +136,47 @@ contract EventTicketNFT is ERC721, ReentrancyGuard, Ownable {
             eventDetails.name,
             eventDetails.description,
             eventDetails.price,
-            eventDetails.isActive,
-            eventDetails.isSold
+            eventDetails.maxTickets,
+            eventDetails.ticketsSold,
+            eventDetails.isActive
         );
     }
 
-    function getTicketEvent(uint256 tokenId) public view returns (uint256) {
+    /**
+     * @dev Retorna o evento associado a um ingresso
+     * @param tokenId ID do token (ingresso)
+     */
+    function getTicketEvent(uint256 tokenId) external view returns (uint256) {
         require(_exists(tokenId), "Token nao existe");
         return ticketToEvent[tokenId];
     }
 
-    function withdraw() public onlyOwner {
+    /**
+     * @dev Retorna todos os eventos ativos com ingressos disponíveis
+     */
+    function getActiveEvents() external view returns (uint256[] memory) {
+        uint256[] memory activeEventIds = new uint256[](eventCount);
+        uint256 activeCount = 0;
+        
+        for(uint256 i = 1; i <= eventCount; i++) {
+            if(events[i].isActive && events[i].ticketsSold < events[i].maxTickets) {
+                activeEventIds[activeCount] = i;
+                activeCount++;
+            }
+        }
+        
+        uint256[] memory result = new uint256[](activeCount);
+        for(uint256 i = 0; i < activeCount; i++) {
+            result[i] = activeEventIds[i];
+        }
+        
+        return result;
+    }
+
+    /**
+     * @dev Permite que o dono do contrato retire os fundos
+     */
+    function withdraw() external onlyOwner {
         uint256 balance = address(this).balance;
         require(balance > 0, "Nenhum saldo para sacar");
         (bool success, ) = payable(owner()).call{value: balance}("");
@@ -128,25 +185,5 @@ contract EventTicketNFT is ERC721, ReentrancyGuard, Ownable {
 
     function _exists(uint256 tokenId) internal view returns (bool) {
         return ownerOf(tokenId) != address(0);
-    }
-
-    function getActiveEvents() public view returns (uint256[] memory) {
-        uint256[] memory activeEventIds = new uint256[](eventCount);
-        uint256 activeCount = 0;
-        
-        for(uint256 i = 1; i <= eventCount; i++) {
-            if(events[i].isActive && !events[i].isSold) {
-                activeEventIds[activeCount] = i;
-                activeCount++;
-            }
-        }
-        
-        // Criar array do tamanho exato
-        uint256[] memory result = new uint256[](activeCount);
-        for(uint256 i = 0; i < activeCount; i++) {
-            result[i] = activeEventIds[i];
-        }
-        
-        return result;
     }
 } 
