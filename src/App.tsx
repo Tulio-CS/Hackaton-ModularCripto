@@ -8,12 +8,12 @@ function App() {
   const [activeTab, setActiveTab] = useState('events');
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      <nav className="bg-white shadow-lg">
+    <div className="min-h-screen bg-neutral-900">
+      <nav className="bg-neutral-800 shadow-lg">
         <div className="max-w-7xl mx-auto px-4">
           <div className="flex justify-between h-16">
             <div className="flex-shrink-0 flex items-center">
-              <h1 className="text-xl font-bold text-indigo-600">NFT Tickets</h1>
+              <h1 className="text-xl font-bold text-primary">Festia</h1>
             </div>
             
             <div className="flex items-center">

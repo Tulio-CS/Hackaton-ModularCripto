@@ -1,7 +1,7 @@
 export const CONTRACT_ADDRESS = "0x737fFC4c896c71620C013e5E2787243a8152224e";
 
 export const NETWORK_CONFIG = {
-  chainId: "0xA4B1", // Hardhat Network chainId em hexadecimal (31337 em decimal)
+  chainId: "0xA4B1", 
   chainName: "arbitrum-one",
   nativeCurrency: {
     name: "ETH",

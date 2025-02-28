@@ -13,7 +13,7 @@ const Header: React.FC = () => {
   };
 
   return (
-    <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-neutral-200">
+    <header className="sticky top-0 z-50 bg-neutral-900 backdrop-blur-md border-b border-neutral-800">
       <div className="container mx-auto px-4 py-4 flex items-center justify-between">
         <div className="flex items-center">
           <motion.div
@@ -24,23 +24,23 @@ const Header: React.FC = () => {
             <Ticket size={28} className="text-primary" />
           </motion.div>
           <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
-            NFTickets
+            Festia
           </h1>
         </div>
 
         {/* Desktop Navigation */}
         <nav className="hidden md:flex items-center space-x-8">
-          <a href="#" className="text-neutral-800 hover:text-primary transition-colors">
-            Explore
+          <a href="#" className="text-neutral-200 hover:text-primary transition-colors">
+            Explorar
           </a>
-          <a href="#" className="text-neutral-800 hover:text-primary transition-colors">
-            My Tickets
+          <a href="#" className="text-neutral-200 hover:text-primary transition-colors">
+            Meus Ingressos
           </a>
-          <a href="#" className="text-neutral-800 hover:text-primary transition-colors">
-            Sell
+          <a href="#" className="text-neutral-200 hover:text-primary transition-colors">
+            Vender
           </a>
-          <a href="#" className="text-neutral-800 hover:text-primary transition-colors">
-            How It Works
+          <a href="#" className="text-neutral-200 hover:text-primary transition-colors">
+            Como Funciona
           </a>
         </nav>
 

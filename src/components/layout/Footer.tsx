@@ -11,11 +11,11 @@ const Footer: React.FC = () => {
             <div className="flex items-center mb-4">
               <Ticket size={24} className="text-primary mr-2" />
               <h2 className="text-xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
-                NFTickets
+                Festia
               </h2>
             </div>
             <p className="text-neutral-400 mb-4">
-              The future of event ticketing. Secure, transparent, and easy to use.
+              O futuro dos ingressos de eventos. Seguro, transparente e fácil de usar.
             </p>
             <div className="flex space-x-4">
               <a href="#" className="text-neutral-400 hover:text-primary transition-colors">

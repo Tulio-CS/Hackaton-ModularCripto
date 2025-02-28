@@ -43,7 +43,7 @@ contract EventTicketNFT is ERC721, ReentrancyGuard, Ownable {
 
     event EventCancelled(uint256 indexed eventId);
 
-    constructor() ERC721("ModularCripto Event Tickets", "MCET") Ownable(msg.sender) {}
+    constructor() ERC721("Festia Event Tickets", "FESTIA") Ownable(msg.sender) {}
 
     /**
      * @dev Cria um novo evento
